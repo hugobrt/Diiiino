@@ -84,8 +84,8 @@ class Community(commands.Cog):
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        # CORRECTION ICI : On utilise le bon type d'interaction (message_component)
-        if interaction.type == discord.InteractionType.message_component:
+        # CORRECTION ICI : 'component' et non 'message_component'
+        if interaction.type == discord.InteractionType.component:
             custom_id = interaction.data.get('custom_id', '')
             
             # Gestion du Règlement (Captcha)
