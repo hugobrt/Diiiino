@@ -6,7 +6,7 @@ from aiohttp import web
 class WebDashboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.app = bot.web_app # On récupère l'application web créée dans main.py
+        self.app = bot.web_app 
         self.setup_routes()
 
     def setup_routes(self):
@@ -96,8 +96,10 @@ class WebDashboard(commands.Cog):
                     <h2>📜 Règlement avec Captcha</h2>
                     <div id="rulesAlert" class="alert"></div>
                     <div class="form-group"><label>Salon</label><select id="rulesChannel" disabled><option>-</option></select></div>
+                    <div class="form-group"><label>Texte du Règlement</label><textarea id="rulesText" placeholder="Ex: 1. Respect mutuel. 2. Pas de spam..."></textarea></div>
+                    <div class="form-group"><label>ID du message à modifier (Laisser vide pour envoyer un nouveau)</label><input type="text" id="rulesMsgId" placeholder="Ex: 123456789012345678"></div>
                     <div class="form-group"><label>Rôle à donner après validation</label><select id="rulesRole" disabled><option>-</option></select></div>
-                    <button class="btn btn-primary" onclick="sendRules()">Envoyer le Règlement</button>
+                    <button class="btn btn-primary" onclick="sendRules()">Envoyer / Modifier le Règlement</button>
                 </div>
 
                 <div class="glass-card">
@@ -174,7 +176,9 @@ class WebDashboard(commands.Cog):
                     const body = {
                         guildId: guildSelect.value,
                         channelId: document.getElementById('rulesChannel').value,
-                        roleId: document.getElementById('rulesRole').value
+                        roleId: document.getElementById('rulesRole').value,
+                        text: document.getElementById('rulesText').value,
+                        messageId: document.getElementById('rulesMsgId').value
                     };
                     const res = await fetch('/api/send-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     const data = await res.json();
@@ -237,17 +241,28 @@ class WebDashboard(commands.Cog):
         channel = guild.get_channel(int(data['channelId']))
         if not channel: return web.json_response({"success": False, "message": "Salon introuvable"})
         
-        embed = discord.Embed(title="📜 Règlement", description="Voici les règles à respecter !", color=discord.Color.dark_blue())
-        embed.add_field(name="1. Respect", value="Aucune insulte n'est tolérée.", inline=False)
-        embed.add_field(name="2. Pas de spam", value="Le spam est interdit.", inline=False)
-        embed.add_field(name="3. Publicité", value="La pub pour d'autres serveurs est interdite.", inline=False)
+        rules_text = data.get('text', "Voici les règles à respecter !")
+        role_id = data.get('roleId')
+        message_id = data.get('messageId')
+        
+        embed = discord.Embed(title="📜 Règlement", description=rules_text, color=discord.Color.dark_blue())
         embed.set_footer(text="Clique sur le bouton pour accepter et prouver que tu n'es pas un robot.")
         
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{data['roleId']}"))
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{role_id}"))
         
-        await channel.send(embed=embed, view=view)
-        return web.json_response({"success": True, "message": "Règlement envoyé !"})
+        if message_id:
+            # Mode Édition
+            try:
+                msg = await channel.fetch_message(int(message_id))
+                await msg.edit(embed=embed, view=view)
+                return web.json_response({"success": True, "message": "Règlement modifié avec succès !"})
+            except Exception as e:
+                return web.json_response({"success": False, "message": "Message introuvable ou je n'ai pas les droits."})
+        else:
+            # Mode Envoi
+            await channel.send(embed=embed, view=view)
+            return web.json_response({"success": True, "message": "Règlement envoyé !"})
 
     async def api_send_rr(self, request):
         data = await request.json()
