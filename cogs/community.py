@@ -84,11 +84,13 @@ class Community(commands.Cog):
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        if interaction.type == discord.InteractionType.component:
+        # CORRECTION ICI : On utilise le bon type d'interaction (message_component)
+        if interaction.type == discord.InteractionType.message_component:
             custom_id = interaction.data.get('custom_id', '')
             
+            # Gestion du Règlement (Captcha)
             if custom_id.startswith('accept_rules_'):
-                role_id = int(custom_id.split('_')[2])
+                role_id = int(custom_id.replace('accept_rules_', ''))
                 role = interaction.guild.get_role(role_id)
                 if not role: return await interaction.response.send_message("Erreur de rôle.", ephemeral=True)
                 if role in interaction.user.roles: return await interaction.response.send_message("Tu as déjà accepté le règlement !", ephemeral=True)
@@ -96,8 +98,9 @@ class Community(commands.Cog):
                 embed = discord.Embed(title="🤖 Vérification Anti-Bot", description="Pour valider ton accès au serveur, prouve que tu es humain.\n### **Clique sur le carré VERT 🟩**", color=discord.Color.orange())
                 await interaction.response.send_message(embed=embed, view=CaptchaView(role_id), ephemeral=True)
 
+            # Gestion des Rôles à Réaction Multiples
             elif custom_id.startswith('rr_'):
-                role_id = int(custom_id.split('_')[1])
+                role_id = int(custom_id.replace('rr_', ''))
                 role = interaction.guild.get_role(role_id)
                 if not role: return await interaction.response.send_message("Ce rôle n'existe plus.", ephemeral=True)
                 
@@ -132,7 +135,6 @@ class Community(commands.Cog):
         
         embed = discord.Embed(title="🎨 Rôles auto-attribuables", description="Choisis tes rôles en cliquant sur les boutons ci-dessous !", color=discord.Color.purple())
         await interaction.channel.send(embed=embed, view=view)
-        self.bot.add_view(view)
         await interaction.response.send_message("✅ Panneau créé !", ephemeral=True)
 
     @app_commands.command(name="giveaway", description="Lancer un giveaway !")
