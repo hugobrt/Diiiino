@@ -6,19 +6,8 @@ from aiohttp import web
 class WebDashboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.app = web.Application()
+        self.app = bot.web_app # On récupère l'application web créée dans main.py
         self.setup_routes()
-
-    async def cog_load(self):
-        self.bot.loop.create_task(self.run_web())
-
-    async def run_web(self):
-        runner = web.AppRunner(self.app)
-        await runner.setup()
-        port = int(os.environ.get('PORT', 5000))
-        site = web.TCPSite(runner, '0.0.0.0', port)
-        await site.start()
-        print(f"🌐 Dashboard web démarré sur le port {port}")
 
     def setup_routes(self):
         self.app.router.add_get('/', self.dashboard_home)
