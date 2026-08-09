@@ -1,0 +1,197 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
+import asyncio
+import random
+
+class CaptchaView(discord.ui.View):
+    def __init__(self, role_id: int):
+        super().__init__(timeout=60)
+        self.role_id = role_id
+        green_index = random.randint(0, 8)
+        btn_index = 0
+        
+        for r in range(3):
+            for c in range(3):
+                if btn_index == green_index:
+                    btn = discord.ui.Button(emoji="🟩", style=discord.ButtonStyle.secondary, custom_id="captcha_ok", row=r)
+                else:
+                    btn = discord.ui.Button(emoji="🟥", style=discord.ButtonStyle.secondary, custom_id=f"captcha_no_{btn_index}", row=r)
+                btn.callback = self.button_callback
+                self.add_item(btn)
+                
+    async def button_callback(self, interaction: discord.Interaction):
+        role = interaction.guild.get_role(self.role_id)
+        if not role:
+            return await interaction.response.edit_message(content="❌ Erreur : Le rôle n'existe plus.", embed=None, view=None)
+            
+        if interaction.data['custom_id'] == 'captcha_ok':
+            try:
+                await interaction.user.add_roles(role)
+                embed = discord.Embed(description="✅ **Vérification réussie !** Tu n'es pas un robot. Tu as maintenant accès au serveur. 🎉", color=discord.Color.green())
+                await interaction.response.edit_message(embed=embed, view=None)
+            except Exception:
+                await interaction.response.edit_message(content="❌ Je n'ai pas la permission de te donner ce rôle.", embed=None, view=None)
+        else:
+            embed = discord.Embed(description="❌ **Perdu !** Tu as cliqué sur un carré rouge. Clique à nouveau sur le bouton du règlement pour réessayer.", color=discord.Color.red())
+            await interaction.response.edit_message(embed=embed, view=None)
+
+class TicketView(discord.ui.View):
+    def __init__(self): super().__init__(timeout=None)
+    @discord.ui.button(label="Ouvrir un Ticket", style=discord.ButtonStyle.primary, emoji="🎫", custom_id="open_ticket")
+    async def open_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        existing = discord.utils.get(interaction.guild.text_channels, name=f"ticket-{interaction.user.name.lower()}")
+        if existing: return await interaction.response.send_message(f"❌ Tu as déjà un ticket : {existing.mention}", ephemeral=True)
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+            interaction.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
+        for role in interaction.guild.roles:
+            if role.permissions.manage_guild: overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        ticket_channel = await interaction.guild.create_text_channel(f"ticket-{interaction.user.name}", overwrites=overwrites)
+        await interaction.response.send_message(f"✅ Ton ticket a été créé : {ticket_channel.mention}", ephemeral=True)
+        embed = discord.Embed(title="🎫 Ticket Ouvert", description=f"Bienvenue {interaction.user.mention} ! Un membre du staff arrive vite.", color=discord.Color.blue())
+        await ticket_channel.send(embed=embed, view=CloseTicketView())
+
+class CloseTicketView(discord.ui.View):
+    def __init__(self): super().__init__(timeout=None)
+    @discord.ui.button(label="Fermer le Ticket", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket")
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("🗑️ Fermeture du ticket dans 5 secondes...", ephemeral=True)
+        await asyncio.sleep(5)
+        await interaction.channel.delete()
+
+class GiveawayView(discord.ui.View):
+    def __init__(self, giveaway_id):
+        super().__init__(timeout=None)
+        self.giveaway_id = giveaway_id
+        self.participants = []
+    @discord.ui.button(label="Participer", style=discord.ButtonStyle.primary, emoji="🎉", custom_id="giveaway_join")
+    async def join_giveaway(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in self.participants:
+            self.participants.append(interaction.user.id)
+            await interaction.response.send_message("✅ Tu participes ! Bonne chance.", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Tu participes déjà !", ephemeral=True)
+
+class Community(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        bot.add_view(TicketView())
+        bot.add_view(CloseTicketView())
+        bot.add_view(GiveawayView(0))
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        if interaction.type == discord.InteractionType.component:
+            custom_id = interaction.data.get('custom_id', '')
+            
+            if custom_id.startswith('accept_rules_'):
+                role_id = int(custom_id.split('_')[2])
+                role = interaction.guild.get_role(role_id)
+                if not role: return await interaction.response.send_message("Erreur de rôle.", ephemeral=True)
+                if role in interaction.user.roles: return await interaction.response.send_message("Tu as déjà accepté le règlement !", ephemeral=True)
+                
+                embed = discord.Embed(title="🤖 Vérification Anti-Bot", description="Pour valider ton accès au serveur, prouve que tu es humain.\n### **Clique sur le carré VERT 🟩**", color=discord.Color.orange())
+                await interaction.response.send_message(embed=embed, view=CaptchaView(role_id), ephemeral=True)
+
+            elif custom_id.startswith('rr_'):
+                role_id = int(custom_id.split('_')[1])
+                role = interaction.guild.get_role(role_id)
+                if not role: return await interaction.response.send_message("Ce rôle n'existe plus.", ephemeral=True)
+                
+                if role in interaction.user.roles:
+                    await interaction.user.remove_roles(role)
+                    await interaction.response.send_message(f"❌ Le rôle **{role.name}** t'a été retiré.", ephemeral=True)
+                else:
+                    await interaction.user.add_roles(role)
+                    await interaction.response.send_message(f"✅ Le rôle **{role.name}** t'a été attribué.", ephemeral=True)
+
+    @app_commands.command(name="ticket-setup", description="Créer le panneau des tickets.")
+    @app_commands.default_permissions(administrator=True)
+    async def ticket_setup(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="🎫 Support - Tickets", description="Besoin d'aide ? Clique sur le bouton ci-dessous pour ouvrir un salon privé avec le staff.", color=discord.Color.blue())
+        await interaction.channel.send(embed=embed, view=TicketView())
+        await interaction.response.send_message("✅ Panneau créé !", ephemeral=True)
+
+    @app_commands.command(name="role-setup", description="Créer un panneau de rôles avec plusieurs boutons.")
+    @app_commands.describe(roles="Mentionne les rôles (ex: @Role1 @Role2)")
+    @app_commands.default_permissions(administrator=True)
+    async def role_setup(self, interaction: discord.Interaction, roles: str):
+        role_ids = [int(r.strip('<@&>')) for r in roles.split() if r.startswith('<@&')]
+        if not role_ids: return await interaction.response.send_message("❌ Mentionne au moins un rôle.", ephemeral=True)
+        if len(role_ids) > 25: return await interaction.response.send_message("❌ Maximum 25 rôles.", ephemeral=True)
+        
+        view = discord.ui.View(timeout=None)
+        for i, role_id in enumerate(role_ids):
+            role = interaction.guild.get_role(role_id)
+            if role:
+                btn = discord.ui.Button(label=role.name[:70], style=discord.ButtonStyle.primary, custom_id=f"rr_{role_id}", row=i//5)
+                view.add_item(btn)
+        
+        embed = discord.Embed(title="🎨 Rôles auto-attribuables", description="Choisis tes rôles en cliquant sur les boutons ci-dessous !", color=discord.Color.purple())
+        await interaction.channel.send(embed=embed, view=view)
+        self.bot.add_view(view)
+        await interaction.response.send_message("✅ Panneau créé !", ephemeral=True)
+
+    @app_commands.command(name="giveaway", description="Lancer un giveaway !")
+    @app_commands.describe(duration_minutes="Durée en minutes", prize="Le lot à gagner")
+    @app_commands.default_permissions(administrator=True)
+    async def giveaway(self, interaction: discord.Interaction, duration_minutes: int, prize: str):
+        g_id = random.randint(1000, 9999)
+        view = GiveawayView(g_id)
+        embed = discord.Embed(title="🎉 GIVEAWAY !", description=f"**Lot :** {prize}\n**Fin dans :** {duration_minutes} minutes", color=discord.Color.gold())
+        embed.set_footer(text=f"ID: {g_id}")
+        await interaction.response.send_message(embed=embed, view=view)
+        msg = await interaction.original_response()
+        await asyncio.sleep(duration_minutes * 60)
+        if not view.participants:
+            return await msg.edit(content="🎉 Giveaway terminé ! Aucun participant.", embed=None, view=None)
+        winner_id = random.choice(view.participants)
+        winner = interaction.guild.get_member(winner_id)
+        await msg.edit(content=f"🎉 Giveaway terminé !\nFélicitations à {winner.mention} qui remporte **{prize}** !", embed=None, view=None)
+
+    @app_commands.command(name="sondage", description="Créer un sondage automatique.")
+    @app_commands.describe(question="Ta question", minutes="Durée en minutes (défaut: 5)")
+    async def sondage(self, interaction: discord.Interaction, question: str, minutes: int = 5):
+        embed = discord.Embed(title="📊 Sondage", description=question, color=discord.Color.gold())
+        embed.set_author(name=interaction.user.name, icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text=f"Finit dans {minutes} minutes. Votez ci-dessous !")
+        await interaction.response.send_message(embed=embed)
+        msg = await interaction.original_response()
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+        
+        await asyncio.sleep(minutes * 60)
+        fetched_msg = await msg.channel.fetch_message(msg.id)
+        yes = 0
+        no = 0
+        for r in fetched_msg.reactions:
+            if r.emoji == "✅": yes = r.count - 1
+            if r.emoji == "❌": no = r.count - 1
+            
+        if yes > no: res = f"✅ Oui gagne avec {yes} votes ! (Contre {no})"
+        elif no > yes: res = f"❌ Non gagne avec {no} votes ! (Contre {yes})"
+        else: res = f"🤝 Égalité parfaite ! ({yes} votes chacun)"
+        
+        final_embed = discord.Embed(title="📊 Sondage Terminé !", description=f"**{question}**\n\n{res}", color=discord.Color.red())
+        await msg.edit(embed=final_embed)
+        await msg.reply(content="Le sondage est terminé, voici les résultats !")
+
+    @app_commands.command(name="reglement", description="Afficher le règlement avec Captcha Anti-Bot.")
+    @app_commands.describe(role="Le rôle à donner après l'acceptation")
+    @app_commands.default_permissions(administrator=True)
+    async def reglement(self, interaction: discord.Interaction, role: discord.Role):
+        embed = discord.Embed(title="📜 Règlement", description="Voici les règles à respecter !", color=discord.Color.dark_blue())
+        embed.add_field(name="1. Respect", value="Aucune insulte n'est tolérée.", inline=False)
+        embed.add_field(name="2. Pas de spam", value="Le spam est interdit.", inline=False)
+        embed.add_field(name="3. Publicité", value="La pub pour d'autres serveurs est interdite.", inline=False)
+        embed.set_footer(text="Clique sur le bouton pour accepter et prouver que tu n'es pas un robot.")
+        
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{role.id}"))
+        await interaction.response.send_message(embed=embed, view=view)
+
+async def setup(bot):
+    await bot.add_cog(Community(bot))
