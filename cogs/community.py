@@ -4,38 +4,6 @@ from discord import app_commands
 import asyncio
 import random
 
-class CaptchaView(discord.ui.View):
-    def __init__(self, role_id: int):
-        super().__init__(timeout=60)
-        self.role_id = role_id
-        green_index = random.randint(0, 8)
-        btn_index = 0
-        
-        for r in range(3):
-            for c in range(3):
-                if btn_index == green_index:
-                    btn = discord.ui.Button(emoji="🟩", style=discord.ButtonStyle.secondary, custom_id="captcha_ok", row=r)
-                else:
-                    btn = discord.ui.Button(emoji="🟥", style=discord.ButtonStyle.secondary, custom_id=f"captcha_no_{btn_index}", row=r)
-                btn.callback = self.button_callback
-                self.add_item(btn)
-                
-    async def button_callback(self, interaction: discord.Interaction):
-        role = interaction.guild.get_role(self.role_id)
-        if not role:
-            return await interaction.response.edit_message(content="❌ Erreur : Le rôle n'existe plus.", embed=None, view=None)
-            
-        if interaction.data['custom_id'] == 'captcha_ok':
-            try:
-                await interaction.user.add_roles(role)
-                embed = discord.Embed(description="✅ **Vérification réussie !** Tu n'es pas un robot. Tu as maintenant accès au serveur. 🎉", color=discord.Color.green())
-                await interaction.response.edit_message(embed=embed, view=None)
-            except Exception:
-                await interaction.response.edit_message(content="❌ Je n'ai pas la permission de te donner ce rôle.", embed=None, view=None)
-        else:
-            embed = discord.Embed(description="❌ **Perdu !** Tu as cliqué sur un carré rouge. Clique à nouveau sur le bouton du règlement pour réessayer.", color=discord.Color.red())
-            await interaction.response.edit_message(embed=embed, view=None)
-
 class TicketView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="Ouvrir un Ticket", style=discord.ButtonStyle.primary, emoji="🎫", custom_id="open_ticket")
@@ -84,33 +52,87 @@ class Community(commands.Cog):
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        # CORRECTION ICI : 'component' et non 'message_component'
-        if interaction.type == discord.InteractionType.component:
-            custom_id = interaction.data.get('custom_id', '')
+        # On ignore les commandes slash, on ne gère que les clics de boutons ici
+        if interaction.type == discord.InteractionType.application_command:
+            return
             
-            # Gestion du Règlement (Captcha)
-            if custom_id.startswith('accept_rules_'):
-                role_id = int(custom_id.replace('accept_rules_', ''))
-                role = interaction.guild.get_role(role_id)
-                if not role: return await interaction.response.send_message("Erreur de rôle.", ephemeral=True)
-                if role in interaction.user.roles: return await interaction.response.send_message("Tu as déjà accepté le règlement !", ephemeral=True)
-                
-                embed = discord.Embed(title="🤖 Vérification Anti-Bot", description="Pour valider ton accès au serveur, prouve que tu es humain.\n### **Clique sur le carré VERT 🟩**", color=discord.Color.orange())
-                await interaction.response.send_message(embed=embed, view=CaptchaView(role_id), ephemeral=True)
+        custom_id = interaction.data.get('custom_id', '')
+        if not custom_id:
+            return
 
-            # Gestion des Rôles à Réaction Multiples
-            elif custom_id.startswith('rr_'):
-                role_id = int(custom_id.replace('rr_', ''))
-                role = interaction.guild.get_role(role_id)
-                if not role: return await interaction.response.send_message("Ce rôle n'existe plus.", ephemeral=True)
-                
-                if role in interaction.user.roles:
-                    await interaction.user.remove_roles(role)
-                    await interaction.response.send_message(f"❌ Le rôle **{role.name}** t'a été retiré.", ephemeral=True)
-                else:
+        # ==========================================
+        # SYSTÈME DE CAPTCHA (Reproduction exacte de l'ancien bot)
+        # ==========================================
+        if custom_id.startswith('accept_rules_'):
+            role_id = int(custom_id.replace('accept_rules_', ''))
+            role = interaction.guild.get_role(role_id)
+            if not role:
+                return await interaction.response.send_message("Erreur : Rôle introuvable.", ephemeral=True)
+            if role in interaction.user.roles:
+                return await interaction.response.send_message("Tu as déjà accepté le règlement !", ephemeral=True)
+
+            # Génération des 9 boutons (3x3)
+            green_index = random.randint(0, 8)
+            view = discord.ui.View(timeout=60)
+            btn_index = 0
+            
+            for r in range(3):
+                for c in range(3):
+                    if btn_index == green_index:
+                        btn = discord.ui.Button(emoji="🟩", style=discord.ButtonStyle.secondary, custom_id=f"captcha_ok_{role_id}", row=r)
+                    else:
+                        btn = discord.ui.Button(emoji="🟥", style=discord.ButtonStyle.secondary, custom_id=f"captcha_no_{role_id}_{btn_index}", row=r)
+                    view.add_item(btn)
+                    btn_index += 1
+
+            embed = discord.Embed(title="🤖 Vérification Anti-Bot", description="Pour valider ton accès au serveur, prouve que tu es humain.\n### **Clique sur le carré VERT 🟩**", color=discord.Color.orange())
+            embed.set_footer(text="Si tu te trompes, tu devras recommencer.")
+            return await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+        # Vérification du clic sur le Captcha
+        if custom_id.startswith('captcha_'):
+            parts = custom_id.split('_')
+            # Format : captcha_ok_ROLEID ou captcha_no_ROLEID_INDEX
+            if len(parts) < 3:
+                return
+            
+            is_correct = parts[1] == 'ok'
+            role_id = int(parts[2])
+            role = interaction.guild.get_role(role_id)
+
+            if not role:
+                return await interaction.response.edit_message(content="Erreur : Le rôle est introuvable.", embed=None, view=None)
+
+            if is_correct:
+                try:
                     await interaction.user.add_roles(role)
-                    await interaction.response.send_message(f"✅ Le rôle **{role.name}** t'a été attribué.", ephemeral=True)
+                    success_embed = discord.Embed(description="✅ **Vérification réussie !** Tu as prouvé que tu n'es pas un robot. Tu as maintenant accès au serveur. 🎉", color=discord.Color.green())
+                    return await interaction.response.edit_message(embed=success_embed, view=None)
+                except Exception:
+                    return await interaction.response.edit_message(content="❌ Je n'ai pas la permission de te donner le rôle.", embed=None, view=None)
+            else:
+                fail_embed = discord.Embed(description="❌ **Perdu !** Tu as cliqué sur un carré rouge. Clique à nouveau sur le bouton du règlement pour réessayer.", color=discord.Color.red())
+                return await interaction.response.edit_message(embed=fail_embed, view=None)
 
+        # ==========================================
+        # SYSTÈME DE RÔLES À RÉACTION
+        # ==========================================
+        if custom_id.startswith('rr_'):
+            role_id = int(custom_id.replace('rr_', ''))
+            role = interaction.guild.get_role(role_id)
+            if not role:
+                return await interaction.response.send_message("Ce rôle n'existe plus.", ephemeral=True)
+
+            if role in interaction.user.roles:
+                await interaction.user.remove_roles(role)
+                return await interaction.response.send_message(f"❌ Le rôle **{role.name}** t'a été retiré.", ephemeral=True)
+            else:
+                await interaction.user.add_roles(role)
+                return await interaction.response.send_message(f"✅ Le rôle **{role.name}** t'a été attribué.", ephemeral=True)
+
+    # ==========================================
+    # COMMANDES SLASH
+    # ==========================================
     @app_commands.command(name="ticket-setup", description="Créer le panneau des tickets.")
     @app_commands.default_permissions(administrator=True)
     async def ticket_setup(self, interaction: discord.Interaction):
