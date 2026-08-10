@@ -252,7 +252,6 @@ class WebDashboard(commands.Cog):
         view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{role_id}"))
         
         if message_id:
-            # Mode Édition
             try:
                 msg = await channel.fetch_message(int(message_id))
                 await msg.edit(embed=embed, view=view)
@@ -260,7 +259,6 @@ class WebDashboard(commands.Cog):
             except Exception as e:
                 return web.json_response({"success": False, "message": "Message introuvable ou je n'ai pas les droits."})
         else:
-            # Mode Envoi
             await channel.send(embed=embed, view=view)
             return web.json_response({"success": True, "message": "Règlement envoyé !"})
 
