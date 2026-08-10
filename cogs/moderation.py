@@ -69,5 +69,12 @@ class Moderation(commands.Cog):
         await interaction.channel.set_permissions(interaction.guild.default_role, overwrite=overwrite)
         await interaction.response.send_message("🔓 Salon déverrouillé.", ephemeral=True)
 
+    @group.command(name="slowmode", description="Régler le slowmode du salon.")
+    @app_commands.describe(seconds="Nombre de secondes (0 pour désactiver)")
+    @app_commands.default_permissions(manage_channels=True)
+    async def slowmode(self, interaction: discord.Interaction, seconds: int):
+        await interaction.channel.edit(slowmode_delay=seconds)
+        await interaction.response.send_message(f"⏱️ Slowmode réglé sur **{seconds} secondes**.", ephemeral=True)
+
 async def setup(bot):
     await bot.add_cog(Moderation(bot))
