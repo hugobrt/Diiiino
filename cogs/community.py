@@ -52,7 +52,6 @@ class Community(commands.Cog):
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        # On ignore les commandes slash, on ne gère que les clics de boutons ici
         if interaction.type == discord.InteractionType.application_command:
             return
             
@@ -60,9 +59,7 @@ class Community(commands.Cog):
         if not custom_id:
             return
 
-        # ==========================================
-        # SYSTÈME DE CAPTCHA (Reproduction exacte de l'ancien bot)
-        # ==========================================
+        # SYSTÈME DE CAPTCHA
         if custom_id.startswith('accept_rules_'):
             role_id = int(custom_id.replace('accept_rules_', ''))
             role = interaction.guild.get_role(role_id)
@@ -71,7 +68,6 @@ class Community(commands.Cog):
             if role in interaction.user.roles:
                 return await interaction.response.send_message("Tu as déjà accepté le règlement !", ephemeral=True)
 
-            # Génération des 9 boutons (3x3)
             green_index = random.randint(0, 8)
             view = discord.ui.View(timeout=60)
             btn_index = 0
@@ -89,12 +85,9 @@ class Community(commands.Cog):
             embed.set_footer(text="Si tu te trompes, tu devras recommencer.")
             return await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-        # Vérification du clic sur le Captcha
         if custom_id.startswith('captcha_'):
             parts = custom_id.split('_')
-            # Format : captcha_ok_ROLEID ou captcha_no_ROLEID_INDEX
-            if len(parts) < 3:
-                return
+            if len(parts) < 3: return
             
             is_correct = parts[1] == 'ok'
             role_id = int(parts[2])
@@ -114,9 +107,7 @@ class Community(commands.Cog):
                 fail_embed = discord.Embed(description="❌ **Perdu !** Tu as cliqué sur un carré rouge. Clique à nouveau sur le bouton du règlement pour réessayer.", color=discord.Color.red())
                 return await interaction.response.edit_message(embed=fail_embed, view=None)
 
-        # ==========================================
         # SYSTÈME DE RÔLES À RÉACTION
-        # ==========================================
         if custom_id.startswith('rr_'):
             role_id = int(custom_id.replace('rr_', ''))
             role = interaction.guild.get_role(role_id)
@@ -130,9 +121,6 @@ class Community(commands.Cog):
                 await interaction.user.add_roles(role)
                 return await interaction.response.send_message(f"✅ Le rôle **{role.name}** t'a été attribué.", ephemeral=True)
 
-    # ==========================================
-    # COMMANDES SLASH
-    # ==========================================
     @app_commands.command(name="ticket-setup", description="Créer le panneau des tickets.")
     @app_commands.default_permissions(administrator=True)
     async def ticket_setup(self, interaction: discord.Interaction):
