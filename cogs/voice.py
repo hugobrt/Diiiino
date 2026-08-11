@@ -122,13 +122,17 @@ class VoiceConfigModal(discord.ui.Modal, title='🛠️ Configuration de ton sal
         if cog:
             cog.temp_channels[new_channel.id] = interaction.user.id
 
-        # --- ON ENVOIE DIRECTEMENT LE PANNEAU DE CONTRÔLE ICI ---
+        # 1. On répond juste "OK" pour fermer la fenêtre de configuration (invisible)
+        await interaction.response.send_message(f"✅ Ton salon **{channel_name}** a été créé ! Regarde le chat du vocal pour le contrôler.", ephemeral=True)
+
+        # 2. ON ENVOIE LE VRAI MESSAGE DANS LE CHAT TEXTUEL DU SALON VOCAL
         embed = discord.Embed(
             title="🛠️ Panneau de Contrôle Vocal",
-            description=f"Bienvenue dans ton salon **{channel_name}** !\n\nUtilise les boutons ci-dessous pour gérer ton salon en temps réel.",
+            description=f"Bienvenue {interaction.user.mention} dans ton salon **{channel_name}** !\n\nUtilise les boutons ci-dessous pour gérer ton salon en temps réel.",
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed, view=VoiceControlView(interaction.user.id, new_channel), ephemeral=True)
+        # On envoie dans new_channel (le chat texte du vocal)
+        await new_channel.send(embed=embed, view=VoiceControlView(interaction.user.id, new_channel))
 
 # --- BOUTON DU PANNEAU D'ACCUEIL ---
 class VoiceView(discord.ui.View):
@@ -148,9 +152,7 @@ class TempVoice(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        # Si l'utilisateur quitte un salon, et que ce salon est un salon temporaire
         if before.channel and before.channel.id in self.temp_channels:
-            # Si le salon est vide, on le supprime
             if len(before.channel.members) == 0:
                 try:
                     await before.channel.delete()
