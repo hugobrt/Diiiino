@@ -51,6 +51,28 @@ class Community(commands.Cog):
         bot.add_view(CloseTicketView())
         bot.add_view(GiveawayView(0))
 
+    # ==========================================
+    #         SYSTÈME DE BIENVENUE AVEC IMAGE
+    # ==========================================
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        # Remplace 'général' par le nom exact de ton salon de bienvenue si différent
+        channel = discord.utils.get(member.guild.text_channels, name="général")
+        if not channel:
+            return # Si le salon n'existe pas, on ne fait rien
+
+        embed = discord.Embed(
+            title=f"Bienvenue {member.name} ! 🎉",
+            description=f"Heureux de t'accueillir sur **{member.guild.name}** !\nTu es le **{member.guild.member_count}ème** membre.\n\nAmuse-toi, explore et profite de la communauté !",
+            color=discord.Color.dark_green()
+        )
+        # Lien de ton image (pense à le remplacer par un lien Discord permanent si celui-ci expire)
+        embed.set_image(url="https://github.com/hugobrt/Diiiino/blob/main/Image_Bienvenue.png")
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(text="N'oublie pas de lire le règlement !")
+
+        await channel.send(content=member.mention, embed=embed)
+
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type == discord.InteractionType.application_command:
@@ -231,17 +253,13 @@ class Community(commands.Cog):
         view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{role.id}"))
         await interaction.response.send_message(embed=embed, view=view)
 
-    # ==========================================
-    #         COMMANDE RÉSEAUX SOCIAUX
-    # ==========================================
     @app_commands.command(name="social", description="Affiche tous les liens des réseaux sociaux de la communauté.")
     async def social(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🌐 Réseaux Sociaux de la Dinocore",
+            title="🌐 Réseaux Sociaux de la Communauté",
             description="Suis-nous sur nos différentes plateformes pour ne rien rater !",
             color=discord.Color.purple()
         )
-        # REMPLACE LES LIENS CI-DESSOUS PAR TES VRAIS LIENS
         embed.add_field(name="📸 Instagram", value="[Notre Instagram](https://www.instagram.com/dinocore_techno/?utm_source=ig_web_button_share_sheet)", inline=False)
         embed.add_field(name="🎵 TikTok", value="[Notre Tiktok](X)", inline=False)
         
