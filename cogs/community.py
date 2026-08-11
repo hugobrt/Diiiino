@@ -46,6 +46,7 @@ class GiveawayView(discord.ui.View):
 class Community(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        if not hasattr(bot, 'events_data'): bot.events_data = {}
         bot.add_view(TicketView())
         bot.add_view(CloseTicketView())
         bot.add_view(GiveawayView(0))
@@ -57,6 +58,31 @@ class Community(commands.Cog):
             
         custom_id = interaction.data.get('custom_id', '')
         if not custom_id:
+            return
+
+        # SYSTÈME D'ÉVÉNEMENTS
+        if custom_id.startswith('event_join_'):
+            event_id = custom_id.replace('event_join_', '')
+            event = self.bot.events_data.get(event_id)
+            
+            if not event:
+                return await interaction.response.send_message("❌ Cet événement est terminé ou introuvable.", ephemeral=True)
+                
+            if interaction.user.id not in event['participants']:
+                event['participants'].append(interaction.user.id)
+                await interaction.response.send_message("✅ Ta participation est confirmée !", ephemeral=True)
+            else:
+                event['participants'].remove(interaction.user.id)
+                await interaction.response.send_message("❌ Tu as retiré ta participation.", ephemeral=True)
+                
+            try:
+                channel = interaction.channel
+                msg = await channel.fetch_message(event['message_id'])
+                embed = msg.embeds[0]
+                embed.set_field_at(1, name="👥 Participants", value=str(len(event['participants'])), inline=False)
+                await msg.edit(embed=embed)
+            except:
+                pass
             return
 
         # SYSTÈME DE CAPTCHA
@@ -204,6 +230,25 @@ class Community(commands.Cog):
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="J'accepte le règlement", style=discord.ButtonStyle.success, emoji="✅", custom_id=f"accept_rules_{role.id}"))
         await interaction.response.send_message(embed=embed, view=view)
+
+    # ==========================================
+    #         COMMANDE RÉSEAUX SOCIAUX
+    # ==========================================
+    @app_commands.command(name="social", description="Affiche tous les liens des réseaux sociaux de la communauté.")
+    async def social(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🌐 Réseaux Sociaux de la Dinocore",
+            description="Suis-nous sur nos différentes plateformes pour ne rien rater !",
+            color=discord.Color.purple()
+        )
+        # REMPLACE LES LIENS CI-DESSOUS PAR TES VRAIS LIENS
+        embed.add_field(name="📸 Instagram", value="[Notre Instagram](https://www.instagram.com/dinocore_techno/?utm_source=ig_web_button_share_sheet)", inline=False)
+        embed.add_field(name="🎵 TikTok", value="[Notre Tiktok](X)", inline=False)
+        
+        embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else "")
+        embed.set_footer(text="Merci de ton soutien ! ❤️")
+        
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Community(bot))
