@@ -2,7 +2,75 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-# --- LA FENÊTRE DE CONFIGURATION (MODAL) ---
+# --- MODAL POUR RENOMMER ---
+class VoiceRenameModal(discord.ui.Modal, title='📝 Renommer le salon vocal'):
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    name = discord.ui.TextInput(
+        label='Nouveau nom du salon',
+        placeholder='Ex: Chill Gaming 🎮',
+        required=True,
+        max_length=50
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.channel.edit(name=self.name.value)
+        await interaction.response.send_message(f"✅ Salon renommé en **{self.name.value}** !", ephemeral=True)
+
+# --- PANNEAU DE CONTRÔLE ---
+class VoiceControlView(discord.ui.View):
+    def __init__(self, owner_id, channel):
+        super().__init__(timeout=None)
+        self.owner_id = owner_id
+        self.channel = channel
+
+    # Sécurité : seul le créateur du salon peut utiliser ces boutons
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("❌ Tu n'es pas le propriétaire de ce salon !", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Verrouiller", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="vc_lock", row=0)
+    async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        overwrites = self.channel.overwrites_for(interaction.guild.default_role)
+        overwrites.connect = False
+        await self.channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+        await interaction.response.send_message("🔒 Salon verrouillé ! Plus personne ne peut rejoindre.", ephemeral=True)
+
+    @discord.ui.button(label="Déverrouiller", style=discord.ButtonStyle.success, emoji="🔓", custom_id="vc_unlock", row=0)
+    async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        overwrites = self.channel.overwrites_for(interaction.guild.default_role)
+        overwrites.connect = True
+        await self.channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+        await interaction.response.send_message("🔓 Salon déverrouillé ! Les gens peuvent rejoindre.", ephemeral=True)
+
+    @discord.ui.button(label="Cacher", style=discord.ButtonStyle.secondary, emoji="👁️", custom_id="vc_hide", row=0)
+    async def hide(self, interaction: discord.Interaction, button: discord.ui.Button):
+        overwrites = self.channel.overwrites_for(interaction.guild.default_role)
+        overwrites.view_channel = False
+        await self.channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+        await interaction.response.send_message("👁️ Salon caché ! Il est maintenant invisible pour les autres.", ephemeral=True)
+
+    @discord.ui.button(label="Afficher", style=discord.ButtonStyle.primary, emoji="👀", custom_id="vc_show", row=0)
+    async def show(self, interaction: discord.Interaction, button: discord.ui.Button):
+        overwrites = self.channel.overwrites_for(interaction.guild.default_role)
+        overwrites.view_channel = True
+        await self.channel.set_permissions(interaction.guild.default_role, overwrite=overwrites)
+        await interaction.response.send_message("👀 Salon affiché ! Tout le monde le voit.", ephemeral=True)
+
+    @discord.ui.button(label="Renommer", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="vc_rename", row=1)
+    async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(VoiceRenameModal(self.channel))
+
+    @discord.ui.button(label="Supprimer", style=discord.ButtonStyle.danger, emoji="🗑️", custom_id="vc_delete", row=1)
+    async def delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.channel.delete()
+        await interaction.response.send_message("🗑️ Salon supprimé !", ephemeral=True)
+
+# --- FENÊTRE DE CRÉATION ---
 class VoiceConfigModal(discord.ui.Modal, title='🛠️ Configuration de ton salon vocal'):
     def __init__(self, bot):
         super().__init__()
@@ -22,11 +90,9 @@ class VoiceConfigModal(discord.ui.Modal, title='🛠️ Configuration de ton sal
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Vérifie si l'utilisateur est bien dans un vocal
         if not interaction.user.voice or not interaction.user.voice.channel:
             return await interaction.response.send_message("❌ Tu dois être connecté à un salon vocal pour créer ton propre salon !", ephemeral=True)
 
-        # Récupération des valeurs
         channel_name = self.name.value
         try:
             user_limit = int(self.limit.value) if self.limit.value else 0
@@ -34,7 +100,6 @@ class VoiceConfigModal(discord.ui.Modal, title='🛠️ Configuration de ton sal
         except:
             user_limit = 0
 
-        # Création du salon
         category = interaction.user.voice.channel.category
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True),
@@ -48,36 +113,37 @@ class VoiceConfigModal(discord.ui.Modal, title='🛠️ Configuration de ton sal
             overwrites=overwrites
         )
         
-        # Déplacement du membre
         try:
             await interaction.user.move_to(new_channel)
         except:
             pass
 
-        # Enregistrement dans la mémoire du bot
         cog = self.bot.get_cog('TempVoice')
         if cog:
-            cog.temp_channels.append(new_channel.id)
+            cog.temp_channels[new_channel.id] = interaction.user.id
 
-        await interaction.response.send_message(f"✅ Ton salon vocal **{channel_name}** a été créé ! Tu es maintenant le chef de ce salon.", ephemeral=True)
+        # --- ON ENVOIE DIRECTEMENT LE PANNEAU DE CONTRÔLE ICI ---
+        embed = discord.Embed(
+            title="🛠️ Panneau de Contrôle Vocal",
+            description=f"Bienvenue dans ton salon **{channel_name}** !\n\nUtilise les boutons ci-dessous pour gérer ton salon en temps réel.",
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, view=VoiceControlView(interaction.user.id, new_channel), ephemeral=True)
 
-# --- LA VUE AVEC LE BOUTON ---
+# --- BOUTON DU PANNEAU D'ACCUEIL ---
 class VoiceView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="Créer mon salon vocal", style=discord.ButtonStyle.success, emoji="🔊", custom_id="create_voice_btn")
     async def create_voice(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.client.get_cog('TempVoice'):
-            return await interaction.response.send_message("Le système vocal n'est pas prêt.", ephemeral=True)
-        
         await interaction.response.send_modal(VoiceConfigModal(interaction.client))
 
 # --- LE COG ---
 class TempVoice(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.temp_channels = []
+        self.temp_channels = {} # Dictionnaire {channel_id: owner_id}
         bot.add_view(VoiceView())
 
     @commands.Cog.listener()
@@ -88,7 +154,7 @@ class TempVoice(commands.Cog):
             if len(before.channel.members) == 0:
                 try:
                     await before.channel.delete()
-                    self.temp_channels.remove(before.channel.id)
+                    del self.temp_channels[before.channel.id]
                 except:
                     pass
 
