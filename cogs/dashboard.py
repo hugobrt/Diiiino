@@ -2,11 +2,25 @@ import os
 import discord
 from discord.ext import commands
 from aiohttp import web
+import uuid
+import json
+
+# Helpers pour les fichiers JSON
+def load_json(filename):
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_json(filename, data):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
 
 class WebDashboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.app = bot.web_app 
+        if not hasattr(bot, 'events_data'): bot.events_data = {}
         self.setup_routes()
 
     def setup_routes(self):
@@ -17,6 +31,15 @@ class WebDashboard(commands.Cog):
         self.app.router.add_post('/api/send-rules', self.api_send_rules)
         self.app.router.add_post('/api/send-rr', self.api_send_rr)
         self.app.router.add_post('/api/set-status', self.api_set_status)
+        self.app.router.add_post('/api/create-event', self.api_create_event)
+        self.app.router.add_get('/api/list-events', self.api_list_events)
+        self.app.router.add_post('/api/close-event', self.api_close_event)
+        self.app.router.add_get('/api/get-welcome-config', self.api_get_welcome_config)
+        self.app.router.add_post('/api/save-welcome-config', self.api_save_welcome_config)
+        # NOUVELLES ROUTES COMMANDES PERSO
+        self.app.router.add_get('/api/get-custom-commands', self.api_get_custom_commands)
+        self.app.router.add_post('/api/save-custom-command', self.api_save_custom_command)
+        self.app.router.add_post('/api/delete-custom-command', self.api_delete_custom_command)
 
     async def dashboard_home(self, request):
         html = """
@@ -50,12 +73,15 @@ class WebDashboard(commands.Cog):
                 .btn-success { background: linear-gradient(135deg, #2dc770, #26a85f); color: white; }
                 .btn-gold { background: linear-gradient(135deg, #FFD700, #FFB800); color: black; }
                 .btn-pink { background: linear-gradient(135deg, #EB459E, #d63384); color: white; }
+                .btn-red { background: linear-gradient(135deg, #f23f42, #c93538); color: white; }
                 .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); }
                 .alert { padding: 16px; border-radius: 12px; margin-bottom: 20px; font-weight: 600; display: none; }
                 .alert.success { background: rgba(45, 199, 112, 0.1); color: #2dc770; border: 1px solid rgba(45, 199, 112, 0.2); }
                 .alert.error { background: rgba(242, 63, 66, 0.1); color: #f23f42; border: 1px solid rgba(242, 63, 66, 0.2); }
                 .row { display: flex; gap: 20px; }
                 .row .form-group { flex: 1; }
+                .list-item { display: flex; justify-content: space-between; align-items: center; background: rgba(14, 15, 18, 0.8); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255, 255, 255, 0.05); }
+                .btn-small { width: auto !important; padding: 10px 20px !important; }
             </style>
         </head>
         <body>
@@ -77,6 +103,42 @@ class WebDashboard(commands.Cog):
                         <div class="form-group" style="flex: 2;"><label>Texte</label><input type="text" id="statusText" placeholder="ex: la communauté"></div>
                     </div>
                     <button class="btn btn-success" onclick="setStatus()">Mettre à jour le statut</button>
+                </div>
+
+                <div class="glass-card">
+                    <h2>⚙️ Commandes Personnalisées</h2>
+                    <div id="customAlert" class="alert"></div>
+                    <div class="row">
+                        <div class="form-group" style="flex:1;"><label>Nom (sans le !)</label><input type="text" id="cmdName" placeholder="Ex: stream"></div>
+                        <div class="form-group" style="flex:1;"><label>Couleur (Hex)</label><input type="text" id="cmdColor" value="#5865F2"></div>
+                    </div>
+                    <div class="form-group"><label>Titre</label><input type="text" id="cmdTitle" placeholder="Titre du message"></div>
+                    <div class="form-group"><label>Description</label><textarea id="cmdDesc" placeholder="Texte du message"></textarea></div>
+                    <button class="btn btn-primary" onclick="saveCmd()">Créer / Modifier la commande</button>
+                    
+                    <div id="customCmdList" style="margin-top: 30px;"></div>
+                </div>
+
+                <div class="glass-card">
+                    <h2>👋 Message de Bienvenue</h2>
+                    <div id="welcomeAlert" class="alert"></div>
+                    <div class="form-group"><label>Salon de bienvenue</label><select id="welcomeChannel" disabled><option>-</option></select></div>
+                    <div class="form-group"><label>Message (Balises: {user}, {server}, {count})</label><textarea id="welcomeMessage" placeholder="Bienvenue {user} sur {server} ! Tu es le {count}ème membre."></textarea></div>
+                    <div class="form-group"><label>Lien de l'image (Laisser vide pour aucune image)</label><input type="url" id="welcomeImage" placeholder="https://..."></div>
+                    <button class="btn btn-success" onclick="saveWelcome()">Sauvegarder la configuration</button>
+                </div>
+
+                <div class="glass-card">
+                    <h2>📅 Événements</h2>
+                    <div id="eventAlert" class="alert"></div>
+                    <div class="form-group"><label>Salon de l'event</label><select id="eventChannel" disabled><option>-</option></select></div>
+                    <div class="row">
+                        <div class="form-group" style="flex:2;"><label>Titre</label><input type="text" id="eventTitle" placeholder="Tournoi Valorant"></div>
+                        <div class="form-group" style="flex:1;"><label>Date / Heure</label><input type="text" id="eventDate" placeholder="Vendredi 20h"></div>
+                    </div>
+                    <div class="form-group"><label>Description</label><textarea id="eventDesc" placeholder="Détails de l'événement"></textarea></div>
+                    <button class="btn btn-success" onclick="createEvent()">Créer l'Événement</button>
+                    <div id="activeEvents" style="margin-top: 30px;"></div>
                 </div>
 
                 <div class="glass-card">
@@ -132,14 +194,22 @@ class WebDashboard(commands.Cog):
                     document.getElementById('embedChannel').innerHTML = channels;
                     document.getElementById('rulesChannel').innerHTML = channels;
                     document.getElementById('rrChannel').innerHTML = channels;
+                    document.getElementById('eventChannel').innerHTML = channels;
+                    document.getElementById('welcomeChannel').innerHTML = channels;
                     document.getElementById('rulesRole').innerHTML = roles;
                     document.getElementById('rrRoles').innerHTML = roles;
                     
                     document.getElementById('embedChannel').disabled = false;
                     document.getElementById('rulesChannel').disabled = false;
                     document.getElementById('rrChannel').disabled = false;
+                    document.getElementById('eventChannel').disabled = false;
+                    document.getElementById('welcomeChannel').disabled = false;
                     document.getElementById('rulesRole').disabled = false;
                     document.getElementById('rrRoles').disabled = false;
+                    
+                    loadEvents();
+                    loadWelcomeConfig();
+                    loadCustomCommands();
                 });
 
                 function showAlert(id, success, msg) {
@@ -195,6 +265,115 @@ class WebDashboard(commands.Cog):
                     const res = await fetch('/api/send-rr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     const data = await res.json();
                     showAlert('rrAlert', data.success, data.message);
+                }
+
+                async function createEvent() {
+                    const body = {
+                        guildId: guildSelect.value,
+                        channelId: document.getElementById('eventChannel').value,
+                        title: document.getElementById('eventTitle').value,
+                        date: document.getElementById('eventDate').value,
+                        description: document.getElementById('eventDesc').value
+                    };
+                    const res = await fetch('/api/create-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const data = await res.json();
+                    showAlert('eventAlert', data.success, data.message);
+                    if(data.success) loadEvents();
+                }
+
+                async function loadEvents() {
+                    const res = await fetch('/api/list-events');
+                    const events = await res.json();
+                    const container = document.getElementById('activeEvents');
+                    if (events.length === 0) {
+                        container.innerHTML = '';
+                        return;
+                    }
+                    let html = '<h2 style="margin-top:20px;">Événements Actifs</h2>';
+                    for (const ev of events) {
+                        html += '<div class="list-item">';
+                        html += '<div><strong>' + ev.title + '</strong><br><span style="color:var(--muted);font-size:13px;">' + ev.participants + ' participant(s)</span></div>';
+                        html += '<button class="btn btn-red btn-small" onclick="closeEvent(\'' + ev.id + '\')">Clôturer</button>';
+                        html += '</div>';
+                    }
+                    container.innerHTML = html;
+                }
+
+                async function closeEvent(id) {
+                    const body = { guildId: guildSelect.value, eventId: id };
+                    const res = await fetch('/api/close-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const data = await res.json();
+                    showAlert('eventAlert', data.success, data.message);
+                    loadEvents();
+                }
+
+                async function loadWelcomeConfig() {
+                    const res = await fetch('/api/get-welcome-config?guildId=' + guildSelect.value);
+                    const data = await res.json();
+                    if(data.success) {
+                        document.getElementById('welcomeMessage').value = data.config.welcome_message || '';
+                        document.getElementById('welcomeImage').value = data.config.welcome_image || '';
+                        if(data.config.welcome_channel) {
+                            document.getElementById('welcomeChannel').value = data.config.welcome_channel;
+                        }
+                    }
+                }
+
+                async function saveWelcome() {
+                    const body = {
+                        guildId: guildSelect.value,
+                        channel: document.getElementById('welcomeChannel').value,
+                        message: document.getElementById('welcomeMessage').value,
+                        image: document.getElementById('welcomeImage').value
+                    };
+                    const res = await fetch('/api/save-welcome-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const data = await res.json();
+                    showAlert('welcomeAlert', data.success, data.message);
+                }
+
+                async function loadCustomCommands() {
+                    const res = await fetch('/api/get-custom-commands?guildId=' + guildSelect.value);
+                    const data = await res.json();
+                    const container = document.getElementById('customCmdList');
+                    if (!data.success || Object.keys(data.commands).length === 0) {
+                        container.innerHTML = '';
+                        return;
+                    }
+                    let html = '<h2 style="margin-top:20px;">Commandes existantes</h2>';
+                    for (const [name, cmd] of Object.entries(data.commands)) {
+                        html += '<div class="list-item">';
+                        html += '<div><strong>!' + name + '</strong><br><span style="color:var(--muted);font-size:13px;">' + cmd.title + '</span></div>';
+                        html += '<button class="btn btn-red btn-small" onclick="deleteCmd(\'' + name + '\')">Supprimer</button>';
+                        html += '</div>';
+                    }
+                    container.innerHTML = html;
+                }
+
+                async function saveCmd() {
+                    const body = {
+                        guildId: guildSelect.value,
+                        name: document.getElementById('cmdName').value,
+                        title: document.getElementById('cmdTitle').value,
+                        description: document.getElementById('cmdDesc').value,
+                        color: document.getElementById('cmdColor').value
+                    };
+                    const res = await fetch('/api/save-custom-command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const data = await res.json();
+                    showAlert('customAlert', data.success, data.message);
+                    if(data.success) {
+                        document.getElementById('cmdName').value = '';
+                        document.getElementById('cmdTitle').value = '';
+                        document.getElementById('cmdDesc').value = '';
+                        loadCustomCommands();
+                    }
+                }
+
+                async function deleteCmd(name) {
+                    const body = { guildId: guildSelect.value, name: name };
+                    const res = await fetch('/api/delete-custom-command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const data = await res.json();
+                    showAlert('customAlert', data.success, data.message);
+                    loadCustomCommands();
                 }
 
                 loadGuilds();
@@ -285,6 +464,117 @@ class WebDashboard(commands.Cog):
         activity_type = getattr(discord.ActivityType, data['type'])
         await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=activity_type, name=data['text']))
         return web.json_response({"success": True, "message": "Statut mis à jour !"})
+
+    async def api_create_event(self, request):
+        data = await request.json()
+        guild = self.bot.get_guild(int(data['guildId']))
+        channel = guild.get_channel(int(data['channelId']))
+        if not channel: return web.json_response({"success": False, "message": "Salon introuvable"})
+        
+        event_id = str(uuid.uuid4())[:8]
+        
+        embed = discord.Embed(title=f"📅 {data['title']}", description=data['description'], color=discord.Color.green())
+        embed.add_field(name="🗓️ Date / Heure", value=data['date'], inline=False)
+        embed.add_field(name="👥 Participants", value="0", inline=False)
+        embed.set_footer(text=f"ID Événement : {event_id}")
+        
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(label="Je participe !", style=discord.ButtonStyle.success, emoji="🎟️", custom_id=f"event_join_{event_id}"))
+        
+        msg = await channel.send(embed=embed, view=view)
+        
+        self.bot.events_data[event_id] = {
+            "title": data['title'],
+            "channel_id": channel.id,
+            "message_id": msg.id,
+            "participants": []
+        }
+        return web.json_response({"success": True, "message": "Événement créé !"})
+
+    async def api_list_events(self, request):
+        events = [{"id": k, "title": v["title"], "participants": len(v["participants"])} for k, v in self.bot.events_data.items()]
+        return web.json_response(events)
+
+    async def api_close_event(self, request):
+        data = await request.json()
+        event_id = data['eventId']
+        event = self.bot.events_data.get(event_id)
+        if not event: return web.json_response({"success": False, "message": "Événement introuvable"})
+        
+        guild = self.bot.get_guild(int(data['guildId']))
+        channel = guild.get_channel(event['channel_id'])
+        msg = await channel.fetch_message(event['message_id'])
+        
+        participants = event['participants']
+        if participants:
+            mentions = ", ".join([f"<@{pid}>" for pid in participants])
+            await channel.send(f"🎉 L'événement **{event['title']}** est clôturé !\nParticipants : {mentions}")
+        else:
+            await channel.send(f"🎉 L'événement **{event['title']}** est clôturé ! Aucun participant.")
+            
+        embed = msg.embeds[0]
+        embed.color = discord.Color.red()
+        embed.set_field_at(1, name="👥 Participants (Clôturé)", value=str(len(participants)), inline=False)
+        await msg.edit(embed=embed, view=None)
+        
+        del self.bot.events_data[event_id]
+        return web.json_response({"success": True, "message": "Événement clôturé !"})
+
+    async def api_get_welcome_config(self, request):
+        guild_id = request.query.get('guildId')
+        config = load_json('config.json')
+        guild_conf = config.get(str(guild_id), {})
+        return web.json_response({"success": True, "config": guild_conf})
+
+    async def api_save_welcome_config(self, request):
+        data = await request.json()
+        guild_id = str(data['guildId'])
+        config = load_json('config.json')
+        
+        config[guild_id] = {
+            "welcome_channel": data['channel'],
+            "welcome_message": data['message'],
+            "welcome_image": data['image']
+        }
+        save_json('config.json', config)
+        return web.json_response({"success": True, "message": "Configuration sauvegardée !"})
+
+    async def api_get_custom_commands(self, request):
+        guild_id = request.query.get('guildId')
+        commands_data = load_json('commands.json')
+        guild_cmds = commands_data.get(str(guild_id), {})
+        return web.json_response({"success": True, "commands": guild_cmds})
+
+    async def api_save_custom_command(self, request):
+        data = await request.json()
+        guild_id = str(data['guildId'])
+        cmd_name = data['name'].lower().replace(" ", "_").replace("!", "")
+        
+        if not cmd_name: return web.json_response({"success": False, "message": "Nom invalide."})
+        
+        commands_data = load_json('commands.json')
+        if guild_id not in commands_data: commands_data[guild_id] = {}
+        
+        commands_data[guild_id][cmd_name] = {
+            "title": data['title'],
+            "description": data['description'],
+            "color": data['color']
+        }
+        save_json('commands.json', commands_data)
+        return web.json_response({"success": True, "message": f"Commande !{cmd_name} sauvegardée !"})
+
+    async def api_delete_custom_command(self, request):
+        data = await request.json()
+        guild_id = str(data['guildId'])
+        cmd_name = data['name']
+        
+        commands_data = load_json('commands.json')
+        if guild_id in commands_data and cmd_name in commands_data[guild_id]:
+            del commands_data[guild_id][cmd_name]
+            save_json('commands.json', commands_data)
+            return web.json_response({"success": True, "message": f"Commande !{cmd_name} supprimée !"})
+        
+        return web.json_response({"success": False, "message": "Commande introuvable."})
 
 async def setup(bot):
     await bot.add_cog(WebDashboard(bot))
