@@ -299,7 +299,7 @@ class Community(commands.Cog):
     @app_commands.describe(artiste="Choisis l'artiste dont tu veux voir les liens.")
     @app_commands.choices(artiste=[
         app_commands.Choice(name="Inima", value="inima"),
-        app_commands.Choice(name="Oddymat", value="oddymat"),
+        app_commands.Choice(name="Oddymatt", value="oddymatt"),
         app_commands.Choice(name="RAWPVCK", value="rawpvck"),
         app_commands.Choice(name="Dyph", value="dyph"),
         app_commands.Choice(name="NRKI", value="nrki")
@@ -315,7 +315,7 @@ class Community(commands.Cog):
             embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/inima.404?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/inima.404?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "oddymat":
+        elif artiste.value == "oddymatt":
             embed.description = "Retrouve **Oddymatt** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/7J8dXDX8bBsEs4N1tWJDnI?si=_ik2dFHJSpGiPKf_vLL-Uw)", inline=False)
             embed.add_field(name="Site", value="[Site](https://oddymatt.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
