@@ -5,8 +5,11 @@ import os
 
 def load_custom_commands():
     if os.path.exists('commands.json'):
-        with open('commands.json', 'r') as f:
-            return json.load(f)
+        try:
+            with open('commands.json', 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {} # Si le fichier est vide ou cassé, on retourne un dictionnaire vide
     return {}
 
 def save_custom_commands(data):
@@ -19,19 +22,15 @@ class CustomCommands(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Ignore les bots et les messages privés
         if message.author.bot or not message.guild:
             return
 
-        # Vérifie si le message commence par "!" (notre préfixe)
         if message.content.startswith('!'):
-            # Récupère le nom de la commande (ex: "!stream" -> "stream")
             cmd_name = message.content[1:].split(' ')[0].lower()
             
             commands_data = load_custom_commands()
             guild_id = str(message.guild.id)
             
-            # Si le serveur a des commandes perso et que celle-ci existe
             if guild_id in commands_data and cmd_name in commands_data[guild_id]:
                 cmd_data = commands_data[guild_id][cmd_name]
                 
