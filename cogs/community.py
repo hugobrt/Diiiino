@@ -300,7 +300,7 @@ class Community(commands.Cog):
     @app_commands.choices(artiste=[
         app_commands.Choice(name="Inima", value="inima"),
         app_commands.Choice(name="Oddymat", value="oddymat"),
-        app_commands.Choice(name="Rawpack", value="rawpack"),
+        app_commands.Choice(name="RAWPVCK", value="rawpvck"),
         app_commands.Choice(name="Dyph", value="dyph"),
         app_commands.Choice(name="NRKI", value="nrki")
     ])
@@ -321,7 +321,7 @@ class Community(commands.Cog):
             embed.add_field(name="Site", value="[Site](https://oddymatt.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/oddymatt_music?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "rawpack":
+        elif artiste.value == "rawpvck":
             embed.description = "Retrouve **Rawpack** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0u4s0r7U9ryKAz568hYnhe?si=fHSmBjknQWemqA3mPM23ug)", inline=False)
             embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/rawpvck?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
