@@ -316,13 +316,13 @@ class Community(commands.Cog):
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/inima.404?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
         elif artiste.value == "oddymat":
-            embed.description = "Retrouve **Oddymat** sur ses plateformes !"
+            embed.description = "Retrouve **Oddymatt** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/7J8dXDX8bBsEs4N1tWJDnI?si=_ik2dFHJSpGiPKf_vLL-Uw)", inline=False)
             embed.add_field(name="Site", value="[Site](https://oddymatt.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/oddymatt_music?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
         elif artiste.value == "rawpvck":
-            embed.description = "Retrouve **Rawpack** sur ses plateformes !"
+            embed.description = "Retrouve **RAWPVCK** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0u4s0r7U9ryKAz568hYnhe?si=fHSmBjknQWemqA3mPM23ug)", inline=False)
             embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/rawpvck?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/rawpvck?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
