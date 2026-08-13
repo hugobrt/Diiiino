@@ -305,7 +305,6 @@ class Community(commands.Cog):
         app_commands.Choice(name="NRKI", value="nrki")
     ])
     async def rs(self, interaction: discord.Interaction, artiste: app_commands.Choice[str]):
-        # Tu n'as qu'à remplacer les "LIEN_ICI" par les vrais liens ci-dessous !
         
         embed = discord.Embed(title=f"🎨 Réseaux de {artiste.name}", color=discord.Color.orange())
         embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else "")
@@ -316,24 +315,24 @@ class Community(commands.Cog):
             embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/inima.404?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/inima.404?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "Oddymat":
+        elif artiste.value == "oddymat":
             embed.description = "Retrouve **Oddymat** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/7J8dXDX8bBsEs4N1tWJDnI?si=_ik2dFHJSpGiPKf_vLL-Uw)", inline=False)
             embed.add_field(name="Site", value="[Site](https://oddymatt.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/oddymatt_music?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "RAWPVCK":
+        elif artiste.value == "rawpack":
             embed.description = "Retrouve **Rawpack** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0u4s0r7U9ryKAz568hYnhe?si=fHSmBjknQWemqA3mPM23ug)", inline=False)
             embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/rawpvck?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/rawpvck?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "Dyph":
+        elif artiste.value == "dyph":
             embed.description = "Retrouve **Dyph** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0sdN10uN7U1xmEbPlkla7k?si=xfhgwx6yQOSqAH0H5UnOTQ)", inline=False)
             embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/dyphmusic?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
             
-        elif artiste.value == "NRKI":
+        elif artiste.value == "nrki":
             embed.description = "Retrouve **NRKI** sur ses plateformes !"
             embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/1t8yas984NoFDReRcOpI3n?si=32p1SJtBSsu6m3iCVett5A)", inline=False)
             embed.add_field(name="📺 Tiktok", value="[Voir sur Tiktok](https://www.tiktok.com/@nrkihard?is_from_webapp=1&sender_device=pc)", inline=False)
