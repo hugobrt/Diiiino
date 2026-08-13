@@ -3,6 +3,15 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 import random
+import json
+import os
+
+# Fonction pour lire la configuration
+def get_welcome_config():
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    return {}
 
 class TicketView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
@@ -52,26 +61,37 @@ class Community(commands.Cog):
         bot.add_view(GiveawayView(0))
 
     # ==========================================
-    #         SYSTÈME DE BIENVENUE AVEC IMAGE
+    #         SYSTÈME DE BIENVENUE CONFIGURABLE
     # ==========================================
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        # Remplace 'général' par le nom exact de ton salon de bienvenue si différent
-        channel = discord.utils.get(member.guild.text_channels, name="général")
-        if not channel:
-            return # Si le salon n'existe pas, on ne fait rien
+        config = get_welcome_config()
+        guild_id = str(member.guild.id)
+        
+        if guild_id in config and config[guild_id].get('welcome_channel'):
+            channel_id = int(config[guild_id]['welcome_channel'])
+            channel = member.guild.get_channel(channel_id)
+            
+            if channel:
+                msg_text = config[guild_id].get('welcome_message', 'Bienvenue {user} !')
+                msg_text = msg_text.replace('{user}', member.mention)
+                msg_text = msg_text.replace('{server}', member.guild.name)
+                msg_text = msg_text.replace('{count}', str(member.guild.member_count))
 
-        embed = discord.Embed(
-            title=f"Bienvenue {member.name} ! 🎉",
-            description=f"Heureux de t'accueillir sur **{member.guild.name}** !\nTu es le **{member.guild.member_count}ème** membre.\n\nAmuse-toi, explore et profite de la communauté !",
-            color=discord.Color.dark_green()
-        )
-        # Lien de ton image (pense à le remplacer par un lien Discord permanent si celui-ci expire)
-        embed.set_image(url="https://github.com/hugobrt/Diiiino/blob/main/Image_Bienvenue.png")
-        embed.set_thumbnail(url=member.display_avatar.url)
-        embed.set_footer(text="N'oublie pas de lire le règlement !")
+                embed = discord.Embed(
+                    title="🎉 Nouveau Membre !",
+                    description=msg_text,
+                    color=discord.Color.dark_green()
+                )
+                
+                img_url = config[guild_id].get('welcome_image')
+                if img_url:
+                    embed.set_image(url=img_url)
+                
+                embed.set_thumbnail(url=member.display_avatar.url)
+                embed.set_footer(text=f"Nous sommes désormais {member.guild.member_count} membres !")
 
-        await channel.send(content=member.mention, embed=embed)
+                await channel.send(content=member.mention, embed=embed)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -260,12 +280,66 @@ class Community(commands.Cog):
             description="Suis-nous sur nos différentes plateformes pour ne rien rater !",
             color=discord.Color.purple()
         )
-        embed.add_field(name="📸 Instagram", value="[Notre Instagram](https://www.instagram.com/dinocore_techno/?utm_source=ig_web_button_share_sheet)", inline=False)
-        embed.add_field(name="🎵 TikTok", value="[Notre Tiktok](X)", inline=False)
+        embed.add_field(name="💬 Discord", value="[Rejoins le serveur](https://discord.gg/TONLIEN)", inline=False)
+        embed.add_field(name="📺 YouTube", value="[Abonne-toi](https://youtube.com/TONLIEN)", inline=False)
+        embed.add_field(name="🎮 Twitch", value="[Suis nos lives](https://twitch.tv/TONLIEN)", inline=False)
+        embed.add_field(name="📸 Instagram", value="[Nos photos](https://instagram.com/TONLIEN)", inline=False)
+        embed.add_field(name="🎵 TikTok", value="[Nos vidéos](https://tiktok.com/@TONLIEN)", inline=False)
+        embed.add_field(name="🐦 Twitter / X", value="[Nos tweets](https://twitter.com/TONLIEN)", inline=False)
         
         embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else "")
         embed.set_footer(text="Merci de ton soutien ! ❤️")
         
+        await interaction.response.send_message(embed=embed)
+
+    # ==========================================
+    #         COMMANDE /rs (ARTISTES)
+    # ==========================================
+    @app_commands.command(name="rs", description="Affiche les liens sociaux des artistes de la communauté.")
+    @app_commands.describe(artiste="Choisis l'artiste dont tu veux voir les liens.")
+    @app_commands.choices(artiste=[
+        app_commands.Choice(name="Inima", value="inima"),
+        app_commands.Choice(name="Oddymat", value="oddymat"),
+        app_commands.Choice(name="Rawpack", value="rawpack"),
+        app_commands.Choice(name="Dyph", value="dyph"),
+        app_commands.Choice(name="NRKI", value="nrki")
+    ])
+    async def rs(self, interaction: discord.Interaction, artiste: app_commands.Choice[str]):
+        # Tu n'as qu'à remplacer les "LIEN_ICI" par les vrais liens ci-dessous !
+        
+        embed = discord.Embed(title=f"🎨 Réseaux de {artiste.name}", color=discord.Color.orange())
+        embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else "")
+        
+        if artiste.value == "inima":
+            embed.description = "Retrouve **Inima** sur ses plateformes !"
+            embed.add_field(name="🎧 Soundcloud", value="[Soundcloud](https://soundcloud.com/inima404)", inline=False)
+            embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/inima.404?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
+            embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/inima.404?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
+            
+        elif artiste.value == "Oddymat":
+            embed.description = "Retrouve **Oddymat** sur ses plateformes !"
+            embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/7J8dXDX8bBsEs4N1tWJDnI?si=_ik2dFHJSpGiPKf_vLL-Uw)", inline=False)
+            embed.add_field(name="Site", value="[Site](https://oddymatt.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
+            embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/oddymatt_music?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
+            
+        elif artiste.value == "RAWPVCK":
+            embed.description = "Retrouve **Rawpack** sur ses plateformes !"
+            embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0u4s0r7U9ryKAz568hYnhe?si=fHSmBjknQWemqA3mPM23ug)", inline=False)
+            embed.add_field(name="Linktree", value="[Linktree](https://linktr.ee/rawpvck?utm_source=ig&utm_medium=social&utm_content=link_in_bio)", inline=False)
+            embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/rawpvck?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
+            
+        elif artiste.value == "Dyph":
+            embed.description = "Retrouve **Dyph** sur ses plateformes !"
+            embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/0sdN10uN7U1xmEbPlkla7k?si=xfhgwx6yQOSqAH0H5UnOTQ)", inline=False)
+            embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/dyphmusic?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
+            
+        elif artiste.value == "NRKI":
+            embed.description = "Retrouve **NRKI** sur ses plateformes !"
+            embed.add_field(name="🎧 Spotify", value="[Écouter sur Spotify](https://open.spotify.com/intl-fr/artist/1t8yas984NoFDReRcOpI3n?si=32p1SJtBSsu6m3iCVett5A)", inline=False)
+            embed.add_field(name="📺 Tiktok", value="[Voir sur Tiktok](https://www.tiktok.com/@nrkihard?is_from_webapp=1&sender_device=pc)", inline=False)
+            embed.add_field(name="📸 Instagram", value="[Suivre sur Instagram](https://www.instagram.com/nrkihard?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==)", inline=False)
+            
+        embed.set_footer(text="Soutiens nos artistes ! ❤️")
         await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
