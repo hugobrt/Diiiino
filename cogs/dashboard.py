@@ -8,8 +8,11 @@ import json
 # Helpers pour les fichiers JSON
 def load_json(filename):
     if os.path.exists(filename):
-        with open(filename, 'r') as f:
-            return json.load(f)
+        try:
+            with open(filename, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {}
     return {}
 
 def save_json(filename, data):
@@ -36,7 +39,6 @@ class WebDashboard(commands.Cog):
         self.app.router.add_post('/api/close-event', self.api_close_event)
         self.app.router.add_get('/api/get-welcome-config', self.api_get_welcome_config)
         self.app.router.add_post('/api/save-welcome-config', self.api_save_welcome_config)
-        # NOUVELLES ROUTES COMMANDES PERSO
         self.app.router.add_get('/api/get-custom-commands', self.api_get_custom_commands)
         self.app.router.add_post('/api/save-custom-command', self.api_save_custom_command)
         self.app.router.add_post('/api/delete-custom-command', self.api_delete_custom_command)
@@ -115,7 +117,6 @@ class WebDashboard(commands.Cog):
                     <div class="form-group"><label>Titre</label><input type="text" id="cmdTitle" placeholder="Titre du message"></div>
                     <div class="form-group"><label>Description</label><textarea id="cmdDesc" placeholder="Texte du message"></textarea></div>
                     <button class="btn btn-primary" onclick="saveCmd()">Créer / Modifier la commande</button>
-                    
                     <div id="customCmdList" style="margin-top: 30px;"></div>
                 </div>
 
@@ -177,39 +178,49 @@ class WebDashboard(commands.Cog):
                 const guildSelect = document.getElementById('guildSelect');
                 
                 async function loadGuilds() {
-                    const res = await fetch('/api/guilds');
-                    const guilds = await res.json();
-                    guildSelect.innerHTML = '<option value="">-- Choisir un serveur --</option>' + guilds.map(g => '<option value="' + g.id + '">' + g.name + '</option>').join('');
+                    try {
+                        const res = await fetch('/api/guilds');
+                        if(!res.ok) throw new Error('HTTP ' + res.status);
+                        const guilds = await res.json();
+                        guildSelect.innerHTML = '<option value="">-- Choisir un serveur --</option>' + guilds.map(g => '<option value="' + g.id + '">' + g.name + '</option>').join('');
+                    } catch(e) {
+                        guildSelect.innerHTML = '<option value="">Erreur de connexion: ' + e.message + '</option>';
+                    }
                 }
 
                 guildSelect.addEventListener('change', async (e) => {
                     const guildId = e.target.value;
                     if (!guildId) return;
-                    const res = await fetch('/api/guild/' + guildId + '/data');
-                    const data = await res.json();
-                    
-                    const channels = data.channels.map(c => '<option value="' + c.id + '">#' + c.name + '</option>').join('');
-                    const roles = data.roles.map(r => '<option value="' + r.id + '">' + r.name + '</option>').join('');
-                    
-                    document.getElementById('embedChannel').innerHTML = channels;
-                    document.getElementById('rulesChannel').innerHTML = channels;
-                    document.getElementById('rrChannel').innerHTML = channels;
-                    document.getElementById('eventChannel').innerHTML = channels;
-                    document.getElementById('welcomeChannel').innerHTML = channels;
-                    document.getElementById('rulesRole').innerHTML = roles;
-                    document.getElementById('rrRoles').innerHTML = roles;
-                    
-                    document.getElementById('embedChannel').disabled = false;
-                    document.getElementById('rulesChannel').disabled = false;
-                    document.getElementById('rrChannel').disabled = false;
-                    document.getElementById('eventChannel').disabled = false;
-                    document.getElementById('welcomeChannel').disabled = false;
-                    document.getElementById('rulesRole').disabled = false;
-                    document.getElementById('rrRoles').disabled = false;
-                    
-                    loadEvents();
-                    loadWelcomeConfig();
-                    loadCustomCommands();
+                    try {
+                        const res = await fetch('/api/guild/' + guildId + '/data');
+                        if(!res.ok) throw new Error('HTTP ' + res.status);
+                        const data = await res.json();
+                        
+                        const channels = data.channels.map(c => '<option value="' + c.id + '">#' + c.name + '</option>').join('');
+                        const roles = data.roles.map(r => '<option value="' + r.id + '">' + r.name + '</option>').join('');
+                        
+                        document.getElementById('embedChannel').innerHTML = channels;
+                        document.getElementById('rulesChannel').innerHTML = channels;
+                        document.getElementById('rrChannel').innerHTML = channels;
+                        document.getElementById('eventChannel').innerHTML = channels;
+                        document.getElementById('welcomeChannel').innerHTML = channels;
+                        document.getElementById('rulesRole').innerHTML = roles;
+                        document.getElementById('rrRoles').innerHTML = roles;
+                        
+                        document.getElementById('embedChannel').disabled = false;
+                        document.getElementById('rulesChannel').disabled = false;
+                        document.getElementById('rrChannel').disabled = false;
+                        document.getElementById('eventChannel').disabled = false;
+                        document.getElementById('welcomeChannel').disabled = false;
+                        document.getElementById('rulesRole').disabled = false;
+                        document.getElementById('rrRoles').disabled = false;
+                        
+                        loadEvents();
+                        loadWelcomeConfig();
+                        loadCustomCommands();
+                    } catch(e) {
+                        alert("Erreur lors du chargement des données du serveur: " + e.message);
+                    }
                 });
 
                 function showAlert(id, success, msg) {
