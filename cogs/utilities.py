@@ -106,5 +106,16 @@ class Utilities(commands.Cog):
         await interaction.channel.send(embed=embed)
         await interaction.response.send_message("✅ Ton embed a été envoyé !", ephemeral=True)
 
+    # ==========================================
+    #         COMMANDE DE PRISE EN CHARGE TICKET
+    # ==========================================
+    @app_commands.command(name="hld", description="Prise en charge ticket")
+    @app_commands.default_permissions(administrator=True)
+    async def handled(self, interaction: discord.Interaction):
+        # 1er message
+        await interaction.channel.send(f"**Ticket handled by:** {interaction.user.mention}")
+        # 2ème message
+        await interaction.channel.send("**Demande traité sous 24h maximum**")
+
 async def setup(bot):
     await bot.add_cog(Utilities(bot))
