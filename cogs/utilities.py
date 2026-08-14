@@ -111,11 +111,26 @@ class Utilities(commands.Cog):
     # ==========================================
     @app_commands.command(name="hld", description="Prise en charge ticket")
     @app_commands.default_permissions(administrator=True)
-    async def handled(self, interaction: discord.Interaction):
-        # 1er message
-        await interaction.channel.send(f"**Ticket handled by:** {interaction.user.mention}")
-        # 2ème message
-        await interaction.channel.send("**Demande traité sous 24h maximum**")
+    async def hld(self, interaction: discord.Interaction):
+        # 1er Embed : Avec la PP de l'admin
+        embed1 = discord.Embed(
+            description=f"**Ticket handled by:** {interaction.user.mention}",
+            color=discord.Color.blue()
+        )
+        embed1.set_author(name=interaction.user.name, icon_url=interaction.user.display_avatar.url)
+        await interaction.channel.send(embed=embed1)
+
+        # 2ème Embed : Avec la PP du serveur
+        embed2 = discord.Embed(
+            description="**Demande traitée sous 24h maximum**\nMerci de patienter pendant que le staff examine votre requête.",
+            color=discord.Color.gold()
+        )
+        if interaction.guild.icon:
+            embed2.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+        else:
+            embed2.set_author(name=interaction.guild.name)
+            
+        await interaction.channel.send(embed=embed2)
 
 async def setup(bot):
     await bot.add_cog(Utilities(bot))
