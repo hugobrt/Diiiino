@@ -304,7 +304,7 @@ class WebDashboard(commands.Cog):
                     for (const ev of events) {
                         html += '<div class="list-item">';
                         html += '<div><strong>' + ev.title + '</strong><br><span style="color:var(--muted);font-size:13px;">' + ev.participants + ' participant(s)</span></div>';
-                        html += '<button class="btn btn-red btn-small" onclick="closeEvent(\'' + ev.id + '\')">Clôturer</button>';
+                        html += '<button class="btn btn-red btn-small" onclick="closeEvent(\\'' + ev.id + '\\')">Clôturer</button>';
                         html += '</div>';
                     }
                     container.innerHTML = html;
@@ -354,7 +354,7 @@ class WebDashboard(commands.Cog):
                     for (const [name, cmd] of Object.entries(data.commands)) {
                         html += '<div class="list-item">';
                         html += '<div><strong>!' + name + '</strong><br><span style="color:var(--muted);font-size:13px;">' + cmd.title + '</span></div>';
-                        html += '<button class="btn btn-red btn-small" onclick="deleteCmd(\'' + name + '\')">Supprimer</button>';
+                        html += '<button class="btn btn-red btn-small" onclick="deleteCmd(\\'' + name + '\\')">Supprimer</button>';
                         html += '</div>';
                     }
                     container.innerHTML = html;
