@@ -61,23 +61,4 @@ async def main():
             await asyncio.sleep(20)
 
 if __name__ == "__main__":
-    asyncio.run(main())    for extension in initial_extensions:
-        try:
-            await bot.load_extension(extension)
-            print(f"✅ Module chargé: {extension}")
-        except Exception as e:
-            print(f"❌ Erreur avec {extension}: {e}")
-            
-    # 2. On lance le serveur web AVANT le bot Discord (pour que Render détecte le port direct !)
-    runner = web.AppRunner(bot.web_app)
-    await runner.setup()
-    port = int(os.environ.get('PORT', 5000))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    print(f"🌐 Serveur web démarré sur le port {port} (Render est content !)")
-    
-    # 3. On lance le bot Discord
-    await bot.start(TOKEN)
-
-if __name__ == "__main__":
     asyncio.run(main())
